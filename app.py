@@ -68,18 +68,20 @@ class NVIDIAEmbeddingFunction:
     def name(self):
         return "nvidia_nv_embedqa"
 
-    def __call__(self, input_texts):
+    # ChromaDB strictly requires the parameter to be named 'input'
+    def __call__(self, input):
         response = nvidia_client.embeddings.create(
             model="nvidia/nv-embedqa-e5-v5",
-            input=input_texts,
+            input=input,
             extra_body={"input_type": "passage"} # Tells NVIDIA we are uploading a document
         )
         return [data.embedding for data in response.data]
 
 nvidia_ef = NVIDIAEmbeddingFunction()
 
-# Change name to pdf_chunks_v2 to ensure a clean slate
-collection = chroma_client.get_or_create_collection(name="pdf_chunks_v2", embedding_function=nvidia_ef)
+# This creates a collection (table) to store our PDF chunks
+collection = chroma_client.get_or_create_collection(name="pdf_chunks_v3", embedding_function=nvidia_ef)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # DATABASE — SQLite helpers
 # ══════════════════════════════════════════════════════════════════════════════
