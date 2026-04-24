@@ -3,6 +3,7 @@ openai==1.35.3
 pypdf==4.2.0
 werkzeug==3.0.3
 python-dotenv==1.0.1
+python-3.11.9
 gunicorn==21.2.0
 # No extra libraries needed for Phase 2!
 # SQLite is built into Python standard library.
