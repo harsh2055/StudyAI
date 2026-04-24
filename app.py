@@ -24,6 +24,8 @@ from werkzeug.utils import secure_filename
 import pypdf
 from openai import OpenAI
 from dotenv import load_dotenv
+import chromadb
+from chromadb.utils import embedding_functions
 
 load_dotenv()   # reads OPENAI_API_KEY from .env
 
@@ -55,6 +57,16 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 DB_PATH = os.path.join(DATA_FOLDER, "notes.db")
 
+# ══════════════════════════════════════════════════════════════════════════════
+# NEW: VECTOR DATABASE SETUP (ChromaDB)
+# ══════════════════════════════════════════════════════════════════════════════
+chroma_client = chromadb.PersistentClient(path=os.path.join(DATA_FOLDER, "chroma_db"))
+openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=OPENAI_API_KEY,
+    model_name="text-embedding-3-small"
+)
+# This creates a collection (table) to store our PDF chunks
+collection = chroma_client.get_or_create_collection(name="pdf_chunks", embedding_function=openai_ef)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATABASE — SQLite helpers
@@ -95,16 +107,38 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def extract_text_from_pdf(filepath):
-    """Read all text from a PDF file, page by page."""
-    text = ""
-    with open(filepath, "rb") as f:
-        reader = pypdf.PdfReader(f)
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-    return text.strip()
+def process_pdf_for_rag(filepath, filename):
+    """
+    Reads PDF page-by-page, chunks the text, and stores it in the Vector DB 
+    along with page number metadata for accurate citations.
+    Returns the total word count for the UI.
+    """
+    reader = pypdf.PdfReader(filepath)
+    total_words = 0
+    
+    for page_num, page in enumerate(reader.pages):
+        text = page.extract_text()
+        if not text:
+            continue
+            
+        total_words += len(text.split())
+        
+        # Split page into 1000-character chunks
+        chunk_size = 1000
+        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+        
+        for chunk_idx, chunk in enumerate(chunks):
+            # Create a unique ID for every single chunk
+            chunk_id = f"{filename}_p{page_num + 1}_c{chunk_idx}"
+            
+            # Upsert into ChromaDB
+            collection.upsert(
+                documents=[chunk],
+                metadatas=[{"filename": filename, "page": page_num + 1}],
+                ids=[chunk_id]
+            )
+            
+    return total_words
 
 
 def truncate_text(text, max_chars=12000):
@@ -176,17 +210,16 @@ def upload_pdf():
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
 
-    text = extract_text_from_pdf(filepath)
-    if not text:
+    word_count = process_pdf_for_rag(filepath, filename)
+    if word_count == 0:
         return jsonify({"error": "Could not extract text. The PDF may be image-only."}), 400
 
     return jsonify({
-        "message":    "PDF uploaded successfully!",
-        "text":       text,
-        "word_count": len(text.split()),
+        "message":    "PDF uploaded and indexed successfully!",
+        "text":       "Indexing complete. Document stored in Vector Database.", 
+        "word_count": word_count,
         "filename":   filename,
     })
-
 
 @app.route("/upload_multi", methods=["POST"])
 def upload_multi():
@@ -211,15 +244,15 @@ def upload_multi():
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        text = extract_text_from_pdf(filepath)
-        if not text:
+        word_count = process_pdf_for_rag(filepath, filename)
+        if word_count == 0:
             warnings.append(f"{filename} — no extractable text, skipped.")
             continue
 
         results.append({
             "filename":   filename,
-            "text":       text,
-            "word_count": len(text.split()),
+            "text":       "Indexing complete. Document stored in Vector Database.",
+            "word_count": word_count,
         })
 
     if not results:
