@@ -113,6 +113,9 @@ def init_db():
 init_db()
 
 
+
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SHARED HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -120,145 +123,7 @@ init_db()
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 def process_pdf_for_rag(filepath, filename):
-    """
-    Reads PDF page-by-page, chunks the text, and stores it in the Vector DB 
-    along with page number metadata for accurate citations.
-    Returns the total word count for the UI.
-    """
-    reader = pypdf.PdfReader(filepath)
-    total_words = 0
-    
-    for page_num, page in enumerate(reader.pages):
-        text = page.extract_text()
-        if not text:
-            continue
-            
-        total_words += len(text.split())
-        
-        # Split page into 1000-character chunks
-        chunk_size = 1000
-        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-        
-        for chunk_idx, chunk in enumerate(chunks):
-            # Create a unique ID for every single chunk
-            chunk_id = f"{filename}_p{page_num + 1}_c{chunk_idx}"
-            
-            # Upsert into ChromaDB
-            collection.upsert(
-                documents=[chunk],
-                metadatas=[{"filename": filename, "page": page_num + 1}],
-                ids=[chunk_id]
-            )
-            
-    return total_words
-
-
-def truncate_text(text, max_chars=12000):
-    """Cap text length so we stay inside GPT's token budget."""
-    if len(text) > max_chars:
-        return text[:max_chars] + "\n\n[... text truncated ...]"
-    return text
-
-
-def ask_openai(system_prompt, user_content, max_tokens=1500):
-    """Call NVIDIA NIM API and return the reply as a string."""
-    response = nvidia_client.chat.completions.create(
-        model=NVIDIA_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_content},
-        ],
-        max_tokens=max_tokens,
-        temperature=0.7,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def difficulty_instructions(level):
-    """
-    Returns an instruction string that steers GPT to the right depth.
-    level: 'easy' | 'medium' | 'hard'
-    """
-    instructions = {
-        "easy": (
-            "Use very simple language suitable for a beginner or school student. "
-            "Avoid jargon. Use short sentences and relatable everyday analogies."
-        ),
-        "medium": (
-            "Use clear language suitable for an undergraduate student. "
-            "Balance simplicity with accuracy."
-        ),
-        "hard": (
-            "Use precise, technical language suitable for an expert or postgraduate. "
-            "Include nuance, edge cases, and advanced insights."
-        ),
-    }
-    return instructions.get(level, instructions["medium"])
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ROUTES — Pages
-# ══════════════════════════════════════════════════════════════════════════════
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ROUTES — PDF Upload
-# ══════════════════════════════════════════════════════════════════════════════
-
-@app.route("/upload", methods=["POST"])
-def upload_pdf():
-    """Single-PDF upload (Phase 1 — unchanged API)."""
-    if "pdf" not in request.files:
-        return jsonify({"error": "No file part in the request."}), 400
-    file = request.files["pdf"]
-    if file.filename == "" or not allowed_file(file.filename):
-        return jsonify({"error": "Please upload a valid PDF file."}), 400
-
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(filepath)
-
-    word_count = process_pdf_for_rag(filepath, filename)
-    if word_count == 0:
-        return jsonify({"error": "Could not extract text. The PDF may be image-only."}), 400
-
-    return jsonify({
-        "message":    "PDF uploaded and indexed successfully!",
-        "text":       "Indexing complete. Document stored in Vector Database.", 
-        "word_count": word_count,
-        "filename":   filename,
-    })
-
-@app.route("/upload_multi", methods=["POST"])
-def upload_multi():
-    """
-    NEW (Phase 2) — Accept multiple PDFs.
-    Form field name must be 'pdfs' (multiple files).
-    Returns a list of { filename, text, word_count } objects.
-    """
-    files = request.files.getlist("pdfs")
-    if not files or all(f.filename == "" for f in files):
-        return jsonify({"error": "No files received."}), 400
-
-    results = []
-    warnings = []
-
-    for file in files:
-        if not allowed_file(file.filename):
-            warnings.append(f"{file.filename} — not a PDF, skipped.")
-            continue
-
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(filepath)
-
- def process_pdf_for_rag(filepath, filename):
     """
     Reads PDF page-by-page, chunks the text, and stores it in the Vector DB.
     Optimized to batch upserts to prevent server timeouts and memory spikes.
@@ -295,11 +160,119 @@ def upload_multi():
             )
             
     return total_words
+
+def truncate_text(text, max_chars=12000):
+    """Cap text length so we stay inside GPT's token budget."""
+    if len(text) > max_chars:
+        return text[:max_chars] + "\n\n[... text truncated ...]"
+    return text
+
+def ask_openai(system_prompt, user_content, max_tokens=1500):
+    """Call NVIDIA NIM API and return the reply as a string."""
+    response = nvidia_client.chat.completions.create(
+        model=NVIDIA_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_content},
+        ],
+        max_tokens=max_tokens,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
+
+def difficulty_instructions(level):
+    """
+    Returns an instruction string that steers GPT to the right depth.
+    level: 'easy' | 'medium' | 'hard'
+    """
+    instructions = {
+        "easy": (
+            "Use very simple language suitable for a beginner or school student. "
+            "Avoid jargon. Use short sentences and relatable everyday analogies."
+        ),
+        "medium": (
+            "Use clear language suitable for an undergraduate student. "
+            "Balance simplicity with accuracy."
+        ),
+        "hard": (
+            "Use precise, technical language suitable for an expert or postgraduate. "
+            "Include nuance, edge cases, and advanced insights."
+        ),
+    }
+    return instructions.get(level, instructions["medium"])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ROUTES — Pages
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ROUTES — PDF Upload
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/upload", methods=["POST"])
+def upload_pdf():
+    """Single-PDF upload (Phase 1 — unchanged API)."""
+    if "pdf" not in request.files:
+        return jsonify({"error": "No file part in the request."}), 400
+    file = request.files["pdf"]
+    if file.filename == "" or not allowed_file(file.filename):
+        return jsonify({"error": "Please upload a valid PDF file."}), 400
+
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.save(filepath)
+
+    word_count = process_pdf_for_rag(filepath, filename)
+    if word_count == 0:
+        return jsonify({"error": "Could not extract text. The PDF may be image-only."}), 400
+
+    return jsonify({
+        "message":    "PDF uploaded and indexed successfully!",
+        "text":       "Indexing complete. Document stored in Vector Database.", 
+        "word_count": word_count,
+        "filename":   filename,
+    })
+
+@app.route("/upload_multi", methods=["POST"])
+def upload_multi():
+    """
+    NEW (Phase 2) — Accept multiple PDFs.
+    """
+    files = request.files.getlist("pdfs")
+    if not files or all(f.filename == "" for f in files):
+        return jsonify({"error": "No files received."}), 400
+
+    results = []
+    warnings = []
+
+    for file in files:
+        if not allowed_file(file.filename):
+            warnings.append(f"{file.filename} — not a PDF, skipped.")
+            continue
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
+
+        word_count = process_pdf_for_rag(filepath, filename)
+        if word_count == 0:
+            warnings.append(f"{filename} — no extractable text, skipped.")
+            continue
+
+        results.append({
+            "filename":   filename,
+            "text":       "Indexing complete. Document stored in Vector Database.",
+            "word_count": word_count,
+        })
+
     if not results:
         return jsonify({"error": "None of the files could be processed.", "details": warnings}), 400
 
     return jsonify({"files": results, "warnings": warnings})
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Features
