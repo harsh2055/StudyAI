@@ -61,12 +61,16 @@ DB_PATH = os.path.join(DATA_FOLDER, "notes.db")
 # NEW: VECTOR DATABASE SETUP (ChromaDB)
 # ══════════════════════════════════════════════════════════════════════════════
 chroma_client = chromadb.PersistentClient(path=os.path.join(DATA_FOLDER, "chroma_db"))
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=OPENAI_API_KEY,
-    model_name="text-embedding-3-small"
+
+# Trick the OpenAI embedding function into using NVIDIA NIM's embedding model
+nvidia_ef = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=NVIDIA_API_KEY,
+    api_base=NVIDIA_BASE_URL,
+    model_name="nvidia/nv-embedqa-e5-v5" 
 )
+
 # This creates a collection (table) to store our PDF chunks
-collection = chroma_client.get_or_create_collection(name="pdf_chunks", embedding_function=openai_ef)
+collection = chroma_client.get_or_create_collection(name="pdf_chunks", embedding_function=nvidia_ef)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATABASE — SQLite helpers
