@@ -64,6 +64,10 @@ chroma_client = chromadb.PersistentClient(path=os.path.join(DATA_FOLDER, "chroma
 
 # Create a custom function to pass the exact parameters NVIDIA requires
 class NVIDIAEmbeddingFunction:
+    # ChromaDB requires a name method to identify the function
+    def name(self):
+        return "nvidia_nv_embedqa"
+
     def __call__(self, input_texts):
         response = nvidia_client.embeddings.create(
             model="nvidia/nv-embedqa-e5-v5",
@@ -74,9 +78,8 @@ class NVIDIAEmbeddingFunction:
 
 nvidia_ef = NVIDIAEmbeddingFunction()
 
-# This creates a collection (table) to store our PDF chunks
-collection = chroma_client.get_or_create_collection(name="pdf_chunks", embedding_function=nvidia_ef)
-
+# Change name to pdf_chunks_v2 to ensure a clean slate
+collection = chroma_client.get_or_create_collection(name="pdf_chunks_v2", embedding_function=nvidia_ef)
 # ══════════════════════════════════════════════════════════════════════════════
 # DATABASE — SQLite helpers
 # ══════════════════════════════════════════════════════════════════════════════
