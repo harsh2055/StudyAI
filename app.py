@@ -62,12 +62,17 @@ DB_PATH = os.path.join(DATA_FOLDER, "notes.db")
 # ══════════════════════════════════════════════════════════════════════════════
 chroma_client = chromadb.PersistentClient(path=os.path.join(DATA_FOLDER, "chroma_db"))
 
-# Trick the OpenAI embedding function into using NVIDIA NIM's embedding model
-nvidia_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=NVIDIA_API_KEY,
-    api_base=NVIDIA_BASE_URL,
-    model_name="nvidia/nv-embedqa-e5-v5" 
-)
+# Create a custom function to pass the exact parameters NVIDIA requires
+class NVIDIAEmbeddingFunction:
+    def __call__(self, input_texts):
+        response = nvidia_client.embeddings.create(
+            model="nvidia/nv-embedqa-e5-v5",
+            input=input_texts,
+            extra_body={"input_type": "passage"} # Tells NVIDIA we are uploading a document
+        )
+        return [data.embedding for data in response.data]
+
+nvidia_ef = NVIDIAEmbeddingFunction()
 
 # This creates a collection (table) to store our PDF chunks
 collection = chroma_client.get_or_create_collection(name="pdf_chunks", embedding_function=nvidia_ef)
