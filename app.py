@@ -258,7 +258,7 @@ def upload_multi():
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-       def process_pdf_for_rag(filepath, filename):
+ def process_pdf_for_rag(filepath, filename):
     """
     Reads PDF page-by-page, chunks the text, and stores it in the Vector DB.
     Optimized to batch upserts to prevent server timeouts and memory spikes.
@@ -277,7 +277,6 @@ def upload_multi():
             
         total_words += len(text.split())
         
-        # Split page into 1000-character chunks
         chunk_size = 1000
         chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
         
@@ -286,7 +285,6 @@ def upload_multi():
             all_metadatas.append({"filename": filename, "page": page_num + 1})
             all_ids.append(f"{filename}_p{page_num + 1}_c{chunk_idx}")
             
-    # BATCH UPSERT: Instead of hitting the API 100 times, we hit it in chunks of 50
     if all_chunks:
         batch_size = 50
         for i in range(0, len(all_chunks), batch_size):
@@ -297,7 +295,6 @@ def upload_multi():
             )
             
     return total_words
-
     if not results:
         return jsonify({"error": "None of the files could be processed.", "details": warnings}), 400
 
