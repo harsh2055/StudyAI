@@ -258,16 +258,45 @@ def upload_multi():
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        word_count = process_pdf_for_rag(filepath, filename)
-        if word_count == 0:
-            warnings.append(f"{filename} — no extractable text, skipped.")
+       def process_pdf_for_rag(filepath, filename):
+    """
+    Reads PDF page-by-page, chunks the text, and stores it in the Vector DB.
+    Optimized to batch upserts to prevent server timeouts and memory spikes.
+    """
+    reader = pypdf.PdfReader(filepath)
+    total_words = 0
+    
+    all_chunks = []
+    all_metadatas = []
+    all_ids = []
+    
+    for page_num, page in enumerate(reader.pages):
+        text = page.extract_text()
+        if not text:
             continue
-
-        results.append({
-            "filename":   filename,
-            "text":       "Indexing complete. Document stored in Vector Database.",
-            "word_count": word_count,
-        })
+            
+        total_words += len(text.split())
+        
+        # Split page into 1000-character chunks
+        chunk_size = 1000
+        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+        
+        for chunk_idx, chunk in enumerate(chunks):
+            all_chunks.append(chunk)
+            all_metadatas.append({"filename": filename, "page": page_num + 1})
+            all_ids.append(f"{filename}_p{page_num + 1}_c{chunk_idx}")
+            
+    # BATCH UPSERT: Instead of hitting the API 100 times, we hit it in chunks of 50
+    if all_chunks:
+        batch_size = 50
+        for i in range(0, len(all_chunks), batch_size):
+            collection.upsert(
+                documents=all_chunks[i:i+batch_size],
+                metadatas=all_metadatas[i:i+batch_size],
+                ids=all_ids[i:i+batch_size]
+            )
+            
+    return total_words
 
     if not results:
         return jsonify({"error": "None of the files could be processed.", "details": warnings}), 400
