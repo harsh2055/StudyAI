@@ -5,8 +5,5 @@ pypdf==4.2.0
 werkzeug==3.0.3
 python-dotenv==1.0.1
 gunicorn==21.2.0
-chromadb==0.4.24
-tiktoken==0.6.0
-# No extra libraries needed for Phase 2!
-# SQLite is built into Python standard library.
-# OpenAI SDK already covers Whisper (speech-to-text) and TTS (text-to-speech).
+chromadb>=0.5.0
+tiktoken>=0.7.0
