@@ -1,4 +1,5 @@
 """
+<<<<<<< HEAD
 PDF Study Assistant v2 — app.py
 =================================
 Phase 1 features (unchanged logic, refactored for modularity):
@@ -24,8 +25,6 @@ from werkzeug.utils import secure_filename
 import pypdf
 from openai import OpenAI
 from dotenv import load_dotenv
-import chromadb
-from chromadb.utils import embedding_functions
 
 load_dotenv()   # reads OPENAI_API_KEY from .env
 
@@ -57,30 +56,6 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 DB_PATH = os.path.join(DATA_FOLDER, "notes.db")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# NEW: VECTOR DATABASE SETUP (ChromaDB)
-# ══════════════════════════════════════════════════════════════════════════════
-chroma_client = chromadb.PersistentClient(path=os.path.join(DATA_FOLDER, "chroma_db"))
-
-# Create a custom function to pass the exact parameters NVIDIA requires
-class NVIDIAEmbeddingFunction:
-    # ChromaDB requires a name method to identify the function
-    def name(self):
-        return "nvidia_nv_embedqa"
-
-    # ChromaDB strictly requires the parameter to be named 'input'
-    def __call__(self, input):
-        response = nvidia_client.embeddings.create(
-            model="nvidia/nv-embedqa-e5-v5",
-            input=input,
-            extra_body={"input_type": "passage"} # Tells NVIDIA we are uploading a document
-        )
-        return [data.embedding for data in response.data]
-
-nvidia_ef = NVIDIAEmbeddingFunction()
-
-# This creates a collection (table) to store our PDF chunks
-collection = chroma_client.get_or_create_collection(name="pdf_chunks_v3", embedding_function=nvidia_ef)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATABASE — SQLite helpers
@@ -113,72 +88,124 @@ def init_db():
 init_db()
 
 
-
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # SHARED HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def allowed_file(filename):
+=======
+PDF Study Assistant - Backend (app.py)
+=======================================
+This is the main server file. It handles:
+  - Receiving the uploaded PDF from the browser
+  - Extracting text from the PDF using PyPDF
+  - Sending that text to the OpenAI API for processing
+  - Sending results back to the browser
+"""
+
+import os
+import json
+from dotenv import load_dotenv       # Load .env file
+from flask import Flask, request, jsonify, render_template
+from werkzeug.utils import secure_filename
+import pypdf                         # Reads PDF files
+from openai import OpenAI            # Talks to the AI
+
+# Load environment variables from .env file
+load_dotenv()
+
+# ── App setup ────────────────────────────────────────────────────────────────
+app = Flask(__name__)
+
+# Where uploaded PDFs are temporarily stored
+UPLOAD_FOLDER = "uploads"
+ALLOWED_EXTENSIONS = {"pdf"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB limit
+
+# Make sure the upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# ── OpenAI client (NVIDIA NIM endpoint) ──────────────────────────────────────
+# Reads API key and base URL from .env to connect to NVIDIA NIM API
+client = OpenAI(
+    base_url=os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+    api_key=os.getenv("NVIDIA_API_KEY"),
+)
+
+# Model to use (defaults to NVIDIA's gpt-oss-20b)
+MODEL_NAME = os.getenv("NVIDIA_MODEL", "openai/gpt-oss-20b")
+
+
+# ── Helper functions ──────────────────────────────────────────────────────────
+
+def allowed_file(filename):
+    """Check that the uploaded file has a .pdf extension."""
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def process_pdf_for_rag(filepath, filename):
-    """
-    Reads PDF page-by-page, chunks the text, and stores it in the Vector DB.
-    Optimized to batch upserts to prevent server timeouts and memory spikes.
-    """
-    reader = pypdf.PdfReader(filepath)
-    total_words = 0
-    
-    all_chunks = []
-    all_metadatas = []
-    all_ids = []
-    
-    for page_num, page in enumerate(reader.pages):
-        text = page.extract_text()
-        if not text:
-            continue
-            
-        total_words += len(text.split())
-        
-        chunk_size = 1000
-        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-        
-        for chunk_idx, chunk in enumerate(chunks):
-            all_chunks.append(chunk)
-            all_metadatas.append({"filename": filename, "page": page_num + 1})
-            all_ids.append(f"{filename}_p{page_num + 1}_c{chunk_idx}")
-            
-    if all_chunks:
-        batch_size = 50
-        for i in range(0, len(all_chunks), batch_size):
-            collection.upsert(
-                documents=all_chunks[i:i+batch_size],
-                metadatas=all_metadatas[i:i+batch_size],
-                ids=all_ids[i:i+batch_size]
-            )
-            
-    return total_words
 
+def extract_text_from_pdf(filepath):
+<<<<<<< HEAD
+    """Read all text from a PDF file, page by page."""
+=======
+    """
+    Open a PDF file and pull out all the text, page by page.
+    Returns one big string of the entire PDF's text content.
+    """
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+    text = ""
+    with open(filepath, "rb") as f:
+        reader = pypdf.PdfReader(f)
+        for page in reader.pages:
+            page_text = page.extract_text()
+<<<<<<< HEAD
+            if page_text:
+=======
+            if page_text:                   # Some pages may be image-only
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+                text += page_text + "\n"
+    return text.strip()
+
+
+<<<<<<< HEAD
 def truncate_text(text, max_chars=12000):
     """Cap text length so we stay inside GPT's token budget."""
     if len(text) > max_chars:
         return text[:max_chars] + "\n\n[... text truncated ...]"
     return text
 
+
 def ask_openai(system_prompt, user_content, max_tokens=1500):
     """Call NVIDIA NIM API and return the reply as a string."""
     response = nvidia_client.chat.completions.create(
         model=NVIDIA_MODEL,
+=======
+def ask_openai(system_prompt, user_content, max_tokens=4096):
+    """
+    Send a prompt to NVIDIA NIM API (OpenAI-compatible) and return the response.
+    
+    The gpt-oss-20b model is a reasoning model that returns output via
+    'reasoning_content' and 'content' fields. We stream and collect both.
+    
+    system_prompt : Tells the AI what role to play (e.g. "You are a teacher...")
+    user_content  : The actual instruction + PDF text
+    max_tokens    : Upper limit on how long the response can be
+    """
+    completion = client.chat.completions.create(
+        model=MODEL_NAME,               # NVIDIA gpt-oss-20b
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_content},
         ],
         max_tokens=max_tokens,
+<<<<<<< HEAD
         temperature=0.7,
     )
     return response.choices[0].message.content.strip()
+
 
 def difficulty_instructions(level):
     """
@@ -201,6 +228,7 @@ def difficulty_instructions(level):
     }
     return instructions.get(level, instructions["medium"])
 
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTES — Pages
 # ══════════════════════════════════════════════════════════════════════════════
@@ -208,6 +236,7 @@ def difficulty_instructions(level):
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTES — PDF Upload
@@ -222,25 +251,97 @@ def upload_pdf():
     if file.filename == "" or not allowed_file(file.filename):
         return jsonify({"error": "Please upload a valid PDF file."}), 400
 
+=======
+        temperature=1,                  # NVIDIA recommended
+        top_p=1,                        # NVIDIA recommended
+        stream=True,                    # Stream for reasoning models
+    )
+
+    # Collect both reasoning and content from the stream
+    reasoning_parts = []
+    content_parts = []
+
+    for chunk in completion:
+        if not getattr(chunk, "choices", None):
+            continue
+        delta = chunk.choices[0].delta
+        # Collect reasoning tokens
+        reasoning = getattr(delta, "reasoning_content", None)
+        if reasoning:
+            reasoning_parts.append(reasoning)
+        # Collect content tokens
+        if delta.content is not None:
+            content_parts.append(delta.content)
+
+    # Prefer content if available, otherwise use reasoning output
+    result = "".join(content_parts).strip()
+    if not result:
+        result = "".join(reasoning_parts).strip()
+
+    return result if result else "No response generated. Please try again."
+
+
+def truncate_text(text, max_chars=12000):
+    """
+    GPT models have a token limit. We cap the PDF text at ~12 000 characters
+    (roughly 3 000 tokens) so we stay well inside the limit.
+    """
+    if len(text) > max_chars:
+        return text[:max_chars] + "\n\n[... text truncated for length ...]"
+    return text
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    """Serve the main HTML page."""
+    return render_template("index.html")
+
+
+@app.route("/upload", methods=["POST"])
+def upload_pdf():
+    """
+    Step 1 – Receive the PDF from the browser.
+    Saves it to disk and extracts its text.
+    Returns the extracted text so the frontend can store it.
+    """
+    if "pdf" not in request.files:
+        return jsonify({"error": "No file part in the request."}), 400
+
+    file = request.files["pdf"]
+
+    if file.filename == "":
+        return jsonify({"error": "No file selected."}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"error": "Only PDF files are allowed."}), 400
+
+    # Save the file safely
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
 
-    word_count = process_pdf_for_rag(filepath, filename)
-    if word_count == 0:
+<<<<<<< HEAD
+    text = extract_text_from_pdf(filepath)
+    if not text:
         return jsonify({"error": "Could not extract text. The PDF may be image-only."}), 400
 
     return jsonify({
-        "message":    "PDF uploaded and indexed successfully!",
-        "text":       "Indexing complete. Document stored in Vector Database.", 
-        "word_count": word_count,
+        "message":    "PDF uploaded successfully!",
+        "text":       text,
+        "word_count": len(text.split()),
         "filename":   filename,
     })
+
 
 @app.route("/upload_multi", methods=["POST"])
 def upload_multi():
     """
     NEW (Phase 2) — Accept multiple PDFs.
+    Form field name must be 'pdfs' (multiple files).
+    Returns a list of { filename, text, word_count } objects.
     """
     files = request.files.getlist("pdfs")
     if not files or all(f.filename == "" for f in files):
@@ -258,21 +359,22 @@ def upload_multi():
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        word_count = process_pdf_for_rag(filepath, filename)
-        if word_count == 0:
+        text = extract_text_from_pdf(filepath)
+        if not text:
             warnings.append(f"{filename} — no extractable text, skipped.")
             continue
 
         results.append({
             "filename":   filename,
-            "text":       "Indexing complete. Document stored in Vector Database.",
-            "word_count": word_count,
+            "text":       text,
+            "word_count": len(text.split()),
         })
 
     if not results:
         return jsonify({"error": "None of the files could be processed.", "details": warnings}), 400
 
     return jsonify({"files": results, "warnings": warnings})
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Features
@@ -283,11 +385,33 @@ def summarize():
     """
     Summarize PDF text.
     Body: { text, difficulty? }
+=======
+    # Extract text
+    text = extract_text_from_pdf(filepath)
+
+    if not text:
+        return jsonify({"error": "Could not extract text. The PDF might be image-only (scanned)."}), 400
+
+    return jsonify({
+        "message": "PDF uploaded and text extracted successfully!",
+        "text": text,
+        "word_count": len(text.split()),
+        "filename": filename,
+    })
+
+
+@app.route("/summarize", methods=["POST"])
+def summarize():
+    """
+    Step 2a – Summarize the PDF text.
+    Expects JSON body: { "text": "<extracted PDF text>" }
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     """
     data = request.get_json()
     if not data or "text" not in data:
         return jsonify({"error": "No text provided."}), 400
 
+<<<<<<< HEAD
     pdf_text   = truncate_text(data["text"])
     difficulty = data.get("difficulty", "medium").lower()
 
@@ -297,23 +421,45 @@ def summarize():
     )
     user_content = (
         "Summarize the following document using bullet points and short paragraphs. "
+=======
+    pdf_text = truncate_text(data["text"])
+
+    system_prompt = (
+        "You are a helpful study assistant. "
+        "Your job is to create clear, structured summaries of educational documents."
+    )
+    user_content = (
+        "Please summarize the following document. "
+        "Use bullet points and short paragraphs. "
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         "Highlight the most important concepts.\n\n"
         f"DOCUMENT:\n{pdf_text}"
     )
 
+<<<<<<< HEAD
     return jsonify({"result": ask_openai(system_prompt, user_content)})
+=======
+    summary = ask_openai(system_prompt, user_content)
+    return jsonify({"result": summary})
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
 
 @app.route("/questions", methods=["POST"])
 def generate_questions():
     """
+<<<<<<< HEAD
     Generate exam questions.
     Body: { text, difficulty? }
+=======
+    Step 2b – Generate exam-style questions from the PDF text.
+    Expects JSON body: { "text": "<extracted PDF text>" }
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     """
     data = request.get_json()
     if not data or "text" not in data:
         return jsonify({"error": "No text provided."}), 400
 
+<<<<<<< HEAD
     pdf_text   = truncate_text(data["text"])
     difficulty = data.get("difficulty", "medium").lower()
 
@@ -334,11 +480,30 @@ def generate_questions():
     )
 
     return jsonify({"result": ask_openai(system_prompt, user_content)})
+=======
+    pdf_text = truncate_text(data["text"])
+
+    system_prompt = (
+        "You are an experienced teacher and exam setter. "
+        "Generate thoughtful questions that test deep understanding."
+    )
+    user_content = (
+        "Based on the document below, generate 10 important exam questions. "
+        "Include a mix of: short-answer, conceptual, and analytical questions. "
+        "Number each question. After all questions, add a section called "
+        "'Key Topics to Study' with 5 bullet points.\n\n"
+        f"DOCUMENT:\n{pdf_text}"
+    )
+
+    questions = ask_openai(system_prompt, user_content)
+    return jsonify({"result": questions})
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
 
 @app.route("/ask", methods=["POST"])
 def ask_question():
     """
+<<<<<<< HEAD
     Answer a specific question about the PDF text.
     Body: { text, question, difficulty? }
     """
@@ -349,20 +514,41 @@ def ask_question():
     pdf_text   = truncate_text(data["text"])
     question   = data["question"].strip()
     difficulty = data.get("difficulty", "medium").lower()
+=======
+    BONUS – Answer a specific question about the PDF.
+    Expects JSON body: { "text": "<PDF text>", "question": "<user question>" }
+    """
+    data = request.get_json()
+    if not data or "text" not in data or "question" not in data:
+        return jsonify({"error": "Both 'text' and 'question' fields are required."}), 400
+
+    pdf_text  = truncate_text(data["text"])
+    question  = data["question"].strip()
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
     if not question:
         return jsonify({"error": "Question cannot be empty."}), 400
 
     system_prompt = (
+<<<<<<< HEAD
         "You are a knowledgeable study assistant. Answer based only on the provided document. "
         "If the answer isn't there, say so clearly. "
         + difficulty_instructions(difficulty)
     )
     user_content = (
+=======
+        "You are a knowledgeable study assistant. "
+        "Answer questions accurately based only on the provided document. "
+        "If the answer isn't in the document, say so clearly."
+    )
+    user_content = (
+        f"Using the document below, answer this question:\n\n"
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         f"QUESTION: {question}\n\n"
         f"DOCUMENT:\n{pdf_text}"
     )
 
+<<<<<<< HEAD
     return jsonify({"result": ask_openai(system_prompt, user_content)})
 
 
@@ -515,5 +701,18 @@ def list_subjects():
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    print("PDF Study Assistant v2 -- http://127.0.0.1:5000")
+    app.run(debug=True, port=5000)
+=======
+    answer = ask_openai(system_prompt, user_content)
+    return jsonify({"result": answer})
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 10000))
+
     app.run(host="0.0.0.0", port=port)
+    app.run(debug=False, host="0.0.0.0", port=port)
+>>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
