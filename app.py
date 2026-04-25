@@ -152,7 +152,7 @@ def extract_text_from_pdf(filepath):
 =======
     """
     Open a PDF file and pull out all the text, page by page.
-    Returns one big string of the entire PDF's text content.
+    message = "Returns one big string of the entire PDF's text content."
     """
 >>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     text = ""
