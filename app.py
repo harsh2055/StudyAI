@@ -1,38 +1,3 @@
-"""
-
-PDF Study Assistant v2 — app.py
-
-=================================
-
-Phase 1 features (unchanged logic, refactored for modularity):
-
-  - Upload PDF, extract text
-
-  - Summarize, generate questions, ask questions
-
-
-
-Phase 2 NEW features:
-
-  - /upload_multi   → accept multiple PDFs at once
-
-  - /transcribe     → speech-to-text via OpenAI Whisper
-
-  - /tts            → text-to-speech via OpenAI TTS
-
-  - /notes/save     → save a note to SQLite
-
-  - /notes/list     → list all saved notes
-
-  - /notes/delete   → delete a note by id
-
-  - difficulty param on /summarize and /questions
-
-"""
-
-
-
-import os
 
 import io
 
