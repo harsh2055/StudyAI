@@ -142,34 +142,34 @@ MODEL_NAME = os.getenv("NVIDIA_MODEL", "openai/gpt-oss-20b")
 
 def allowed_file(filename):
     """Check that the uploaded file has a .pdf extension."""
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def extract_text_from_pdf(filepath):
-<<<<<<< HEAD
+ HEAD
     """Read all text from a PDF file, page by page."""
-=======
+
     """
     Open a PDF file and pull out all the text, page by page.
     message = "Returns one big string of the entire PDF's text content."
     """
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     text = ""
     with open(filepath, "rb") as f:
         reader = pypdf.PdfReader(f)
         for page in reader.pages:
             page_text = page.extract_text()
-<<<<<<< HEAD
-            if page_text:
-=======
+HEAD
+          if page_text:
+
             if page_text:                   # Some pages may be image-only
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
                 text += page_text + "\n"
     return text.strip()
 
 
-<<<<<<< HEAD
+ HEAD
 def truncate_text(text, max_chars=12000):
     """Cap text length so we stay inside GPT's token budget."""
     if len(text) > max_chars:
@@ -181,7 +181,7 @@ def ask_openai(system_prompt, user_content, max_tokens=1500):
     """Call NVIDIA NIM API and return the reply as a string."""
     response = nvidia_client.chat.completions.create(
         model=NVIDIA_MODEL,
-=======
+
 def ask_openai(system_prompt, user_content, max_tokens=4096):
     """
     Send a prompt to NVIDIA NIM API (OpenAI-compatible) and return the response.
@@ -195,13 +195,13 @@ def ask_openai(system_prompt, user_content, max_tokens=4096):
     """
     completion = client.chat.completions.create(
         model=MODEL_NAME,               # NVIDIA gpt-oss-20b
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_content},
         ],
         max_tokens=max_tokens,
-<<<<<<< HEAD
+HEAD
         temperature=0.7,
     )
     return response.choices[0].message.content.strip()
@@ -251,7 +251,7 @@ def upload_pdf():
     if file.filename == "" or not allowed_file(file.filename):
         return jsonify({"error": "Please upload a valid PDF file."}), 400
 
-=======
+
         temperature=1,                  # NVIDIA recommended
         top_p=1,                        # NVIDIA recommended
         stream=True,                    # Stream for reasoning models
@@ -318,12 +318,12 @@ def upload_pdf():
         return jsonify({"error": "Only PDF files are allowed."}), 400
 
     # Save the file safely
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
 
-<<<<<<< HEAD
+ HEAD
     text = extract_text_from_pdf(filepath)
     if not text:
         return jsonify({"error": "Could not extract text. The PDF may be image-only."}), 400
@@ -385,7 +385,7 @@ def summarize():
     """
     Summarize PDF text.
     Body: { text, difficulty? }
-=======
+
     # Extract text
     text = extract_text_from_pdf(filepath)
 
@@ -405,13 +405,13 @@ def summarize():
     """
     Step 2a – Summarize the PDF text.
     Expects JSON body: { "text": "<extracted PDF text>" }
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     """
     data = request.get_json()
     if not data or "text" not in data:
         return jsonify({"error": "No text provided."}), 400
 
-<<<<<<< HEAD
+HEAD
     pdf_text   = truncate_text(data["text"])
     difficulty = data.get("difficulty", "medium").lower()
 
@@ -421,7 +421,7 @@ def summarize():
     )
     user_content = (
         "Summarize the following document using bullet points and short paragraphs. "
-=======
+
     pdf_text = truncate_text(data["text"])
 
     system_prompt = (
@@ -431,35 +431,35 @@ def summarize():
     user_content = (
         "Please summarize the following document. "
         "Use bullet points and short paragraphs. "
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         "Highlight the most important concepts.\n\n"
         f"DOCUMENT:\n{pdf_text}"
     )
 
-<<<<<<< HEAD
+ HEAD
     return jsonify({"result": ask_openai(system_prompt, user_content)})
-=======
+
     summary = ask_openai(system_prompt, user_content)
     return jsonify({"result": summary})
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
 
 @app.route("/questions", methods=["POST"])
 def generate_questions():
     """
-<<<<<<< HEAD
+ HEAD
     Generate exam questions.
     Body: { text, difficulty? }
-=======
+
     Step 2b – Generate exam-style questions from the PDF text.
     Expects JSON body: { "text": "<extracted PDF text>" }
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
     """
     data = request.get_json()
     if not data or "text" not in data:
         return jsonify({"error": "No text provided."}), 400
 
-<<<<<<< HEAD
+ HEAD
     pdf_text   = truncate_text(data["text"])
     difficulty = data.get("difficulty", "medium").lower()
 
@@ -480,7 +480,7 @@ def generate_questions():
     )
 
     return jsonify({"result": ask_openai(system_prompt, user_content)})
-=======
+
     pdf_text = truncate_text(data["text"])
 
     system_prompt = (
@@ -497,13 +497,13 @@ def generate_questions():
 
     questions = ask_openai(system_prompt, user_content)
     return jsonify({"result": questions})
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
 
 @app.route("/ask", methods=["POST"])
 def ask_question():
     """
-<<<<<<< HEAD
+ HEAD
     Answer a specific question about the PDF text.
     Body: { text, question, difficulty? }
     """
@@ -514,7 +514,7 @@ def ask_question():
     pdf_text   = truncate_text(data["text"])
     question   = data["question"].strip()
     difficulty = data.get("difficulty", "medium").lower()
-=======
+
     BONUS – Answer a specific question about the PDF.
     Expects JSON body: { "text": "<PDF text>", "question": "<user question>" }
     """
@@ -524,31 +524,31 @@ def ask_question():
 
     pdf_text  = truncate_text(data["text"])
     question  = data["question"].strip()
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
 
     if not question:
         return jsonify({"error": "Question cannot be empty."}), 400
 
     system_prompt = (
-<<<<<<< HEAD
+ HEAD
         "You are a knowledgeable study assistant. Answer based only on the provided document. "
         "If the answer isn't there, say so clearly. "
         + difficulty_instructions(difficulty)
     )
     user_content = (
-=======
+
         "You are a knowledgeable study assistant. "
         "Answer questions accurately based only on the provided document. "
         "If the answer isn't in the document, say so clearly."
     )
     user_content = (
         f"Using the document below, answer this question:\n\n"
->>>>>>> 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
+ 4b37a09c95be1c3c4b2bdc6b445f89fd0eec1f2c
         f"QUESTION: {question}\n\n"
         f"DOCUMENT:\n{pdf_text}"
     )
 
-<<<<<<< HEAD
+ HEAD
     return jsonify({"result": ask_openai(system_prompt, user_content)})
 
 
@@ -703,7 +703,7 @@ def list_subjects():
 if __name__ == "__main__":
     print("PDF Study Assistant v2 -- http://127.0.0.1:5000")
     app.run(debug=True, port=5000)
-=======
+
     answer = ask_openai(system_prompt, user_content)
     return jsonify({"result": answer})
 
