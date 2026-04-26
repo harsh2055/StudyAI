@@ -112,12 +112,3 @@ When to consider upgrading:
 - Redis → if you want fast in-memory caching of PDF texts between requests
 - Cloud storage (S3 + RDS) → when deploying publicly at scale
 
-## Future Improvements
-
-- User accounts with Flask-Login so each user has private notes
-- Export notes as PDF or Markdown file
-- Flashcard generator (question/answer pairs → Anki CSV format)
-- Upload history: re-process a previously uploaded PDF without re-uploading
-- Streaming responses: show AI text word-by-word as it arrives (Server-Sent Events)
-- Rate limiting to protect your OpenAI API budget
-- Docker container for one-command deployment
